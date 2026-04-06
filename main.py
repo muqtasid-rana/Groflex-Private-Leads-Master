@@ -2,7 +2,7 @@ import os
 import re
 import time
 import datetime
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote_plus
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -128,19 +128,28 @@ def run_scraper():
     leads_found = []
     
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(viewport={'width': 1280, 'height': 800})
+        browser = p.chromium.launch(headless=True, args=['--disable-blink-features=AutomationControlled'])
+        context = browser.new_context(viewport={'width': 1280, 'height': 800}, locale='en-US')
         page = context.new_page()
-        page.goto("https://www.google.com/maps")
         
-        # Wait for search box
-        page.wait_for_selector('input#searchboxinput', timeout=10000)
-        page.fill('input#searchboxinput', query)
-        page.press('input#searchboxinput', 'Enter')
+        # Go directly to search URL
+        safe_query = quote_plus(query)
+        page.goto(f"https://www.google.com/maps/search/{safe_query}", timeout=60000)
         
-        # Wait for results list
+        # Try a quick bypass if Google shows a GDPR consent screen
         try:
-            page.wait_for_selector('a[href^="https://www.google.com/maps/place/"]', timeout=15000)
+            reject_btn = page.locator('button:has-text("Reject all")')
+            accept_btn = page.locator('button:has-text("Accept all")')
+            if reject_btn.is_visible(timeout=3000):
+                reject_btn.click()
+            elif accept_btn.is_visible(timeout=1000):
+                accept_btn.click()
+        except:
+            pass
+        
+        # Wait for either results list or a single result
+        try:
+            page.wait_for_selector('a[href^="https://www.google.com/maps/place/"]', timeout=30000)
         except Exception:
             print("No results found or page took too long.")
             browser.close()
