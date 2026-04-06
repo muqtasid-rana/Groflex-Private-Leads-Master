@@ -1,0 +1,46 @@
+name: Daily Lead Generation Scraper
+
+on:
+  schedule:
+    # Runs at 00:00 UTC every day (which is 05:00 AM Pakistan Standard Time / PKT)
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI for testing
+
+permissions:
+  contents: write # Needed to commit and push changes back to the repository
+
+jobs:
+  scrape-leads:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+      - name: Install Playwright Browsers
+        run: playwright install chromium
+        
+      - name: Run Scraper
+        env:
+          SOURCE_SHEET_NAME: "SearchPlan.xlsx"
+          TARGET_SHEET_NAME: "Leads.xlsx"
+        run: |
+          python main.py
+
+      - name: Commit and Push Leads File
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add Leads.xlsx
+          git commit -m "chore: updated Leads.xlsx with new scraped data [skip ci]" || echo "No changes to commit"
+          git push
