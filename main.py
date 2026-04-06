@@ -171,8 +171,13 @@ def run_scraper():
                     businesses.append({"name": name, "href": href})
             
             if len(businesses) == previous_count:
-                page.mouse.wheel(0, 5000)
-                time.sleep(2)
+                try:
+                    page.locator('div[role="feed"]').hover()
+                    page.mouse.wheel(0, 5000)
+                    page.evaluate('document.querySelector(\'div[role="feed"]\').scrollBy(0, 5000)')
+                except:
+                    page.mouse.wheel(0, 5000)
+                time.sleep(2.5)
                 scroll_attempts += 1
             else:
                 previous_count = len(businesses)
